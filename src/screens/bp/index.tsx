@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faMinus, faPlus, faWeight } from '@fortawesome/free-solid-svg-icons';
@@ -9,6 +9,7 @@ import Colors from '../../constant/colors';
 import styles from '../../styles/styles';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ToastMessage from '../toast';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 export const BP = ({ navigation }: any) => {
     const route: any = useRoute();
@@ -23,6 +24,7 @@ export const BP = ({ navigation }: any) => {
     const [isLoading, setIsLoading] = useState(false);
 
     const [showToast, setShowToast] = useState(false);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
     useEffect(() => {
 
@@ -45,8 +47,9 @@ export const BP = ({ navigation }: any) => {
 
     const getAccessToken = async () => {
         try {
-            const token = await AsyncStorage.getItem('token');
-            return token;
+            if (storedCrendentials) {
+                return storedCrendentials;
+              }
         } catch (error) {
             console.error('Error retrieving access token:', error);
             return null;
@@ -71,8 +74,9 @@ export const BP = ({ navigation }: any) => {
     const [thersholdSystolic, setThersholdSystolic] = useState(180);
 
     //Alert.alert('Alert 3', `Alert 3`);
-    const loadBPLookupValue = () => {
-        const url = config.BASE_URL + `task/getConstants/BP`;
+    const loadBPLookupValue = async () => {
+        const baseUrl = await AsyncStorage.getItem('baseUrl');
+        const url = baseUrl + `task/getConstants/BP`;
         getAccessToken().then(token => {
             if (token) {
                 setIsLoading(true);
@@ -204,8 +208,9 @@ export const BP = ({ navigation }: any) => {
         }
     }
 
-    const saveException = (exception: any, exceptionCondition: boolean) => {
-        const url = config.BASE_URL + `task/saveException`;
+    const saveException = async (exception: any, exceptionCondition: boolean) => {
+        const baseUrl = await AsyncStorage.getItem('baseUrl');
+        const url = baseUrl + `task/saveException`;
         let requestBody = {
             "id": 0,
             "exceptionType": exception,
@@ -269,7 +274,7 @@ export const BP = ({ navigation }: any) => {
             setMessage("Lower limit entered cannopt be below less than 0");
             return;
         }
-        getUserId().then(userId => {
+        getUserId().then(async userId => {
             let requestBody = {
                 "id": data.qaResponseId,
                 "patientId": userId,
@@ -283,7 +288,8 @@ export const BP = ({ navigation }: any) => {
                 "nestedQuestion": [],
                 "questionType": data.questionType,
             }
-            const url = config.BASE_URL + `task/saveResponse`;
+            const baseUrl = await AsyncStorage.getItem('baseUrl');
+            const url = baseUrl + `task/saveResponse`;
             getAccessToken().then((token: any) => {
                 setIsLoading(true);
                 if (token) {
@@ -359,9 +365,10 @@ export const BP = ({ navigation }: any) => {
                                 <View style={{ flex: 1, alignItems: 'center', marginRight: 5 }}>
                                     <Text style={styles.subText}>Systolic:</Text>
                                     <TextInput
-                                        style={{ height: 60, borderColor: 'gray', borderWidth: 1, borderRadius: 5, padding: 10, width: '100%' }}
+                                        style={{ height: 60, borderColor: 'gray', borderWidth: 1, borderRadius: 5, padding: 10, width: '100%',color:'black' }}
                                         keyboardType="numeric"
                                         placeholder="Enter systolic"
+                                        placeholderTextColor={Colors.PlaceholderColor}
                                         value={systolic}
                                         onChangeText={setSystolic}
                                     />
@@ -369,9 +376,10 @@ export const BP = ({ navigation }: any) => {
                                 <View style={{ flex: 1, alignItems: 'center', marginLeft: 5 }}>
                                     <Text style={styles.subText}>Diastolic:</Text>
                                     <TextInput
-                                        style={{ height: 60, borderColor: 'gray', borderWidth: 1, borderRadius: 5, padding: 10, width: '100%' }}
+                                        style={{ height: 60, borderColor: 'gray', borderWidth: 1, borderRadius: 5, padding: 10, width: '100%',color: 'black' }}
                                         keyboardType="numeric"
                                         placeholder="Enter diastolic"
+                                        placeholderTextColor={Colors.PlaceholderColor}
                                         value={diastolic}
                                         onChangeText={setDiastolic}
                                     />
@@ -382,9 +390,10 @@ export const BP = ({ navigation }: any) => {
                                     <Text style={[styles.subText, { alignSelf: 'flex-start' }]}>Entered Diastolic : {diastolic}</Text>
                                     <Text style={[styles.subText, { alignSelf: 'flex-start' }]}>Please Enter Systolic value :</Text>
                                     <TextInput
-                                        style={{ height: 60, borderColor: 'gray', borderWidth: 1, borderRadius: 5, padding: 10, width: '100%' }}
+                                        style={{ height: 60, borderColor: 'gray', borderWidth: 1, borderRadius: 5, padding: 10, width: '100%' , color: 'black'}}
                                         keyboardType="numeric"
                                         placeholder="Enter systolic"
+                                        placeholderTextColor={Colors.PlaceholderColor}
                                         value={confirmSystolic}
                                         onChangeText={setConfirmSystolic}
                                     />

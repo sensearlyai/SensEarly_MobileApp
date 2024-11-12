@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Alert, Pressable } from 'react-native';
 import styles from '../../styles/styles'; // Import external styles
 import config from '../../constant/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import moment from 'moment';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 export const DailyTask = ({ navigation }: any) => {
   const [currentDate, setCurrentDate] = useState('');
@@ -19,10 +20,12 @@ export const DailyTask = ({ navigation }: any) => {
   const [pendingTask, setPendingTask] = useState(0);
   const [totalTask, setTotalTask] = useState(0);
   const [list, setList] = useState([]);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
   useEffect(() => {
     setCurrentDate(getCurrentDate());
     setSelectedDate(new Date());
+    loadQuestionare(new Date());
   }, []);
 
   const getCurrentDate = () => {
@@ -37,15 +40,19 @@ export const DailyTask = ({ navigation }: any) => {
     return formattedDate;
   };
 
-  const getAccessToken = async () => {
+  const getBaseUrlAndToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      const [token, baseUrl] = await Promise.all([
+        storedCrendentials,
+        AsyncStorage.getItem('baseUrl')
+      ]);
+      console.log(token, baseUrl)
+      return { token, baseUrl };
     } catch (error) {
-      console.error('Error retrieving access token:', error);
-      return null;
+      console.error('Error retrieving data:', error);
+      return { token: null, baseUrl: null };
     }
-  };
+  }
 
   const getSelectedDate = async () => {
     try {
@@ -58,37 +65,132 @@ export const DailyTask = ({ navigation }: any) => {
   };
 
   const [isLoading, setIsLoading] = useState(false);
-  const loadQuestionare = (date: any) => {
+  const loadQuestionare = async (date: any) => {
     const currentDate = date.toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
-    const url = config.BASE_URL + `task/loadQuestionare/${currentDate}`;
-    getAccessToken().then(token => {
-      if (token) {
+    // const baseUrl = await AsyncStorage.getItem('baseUrl');
+    // const url = baseUrl + `task/loadQuestionare/${currentDate}`;
+    const { token, baseUrl } = await getBaseUrlAndToken();
+    if (token && baseUrl) {
+      setIsLoading(true);
+      fetch(`${baseUrl}task/loadQuestionare/${currentDate}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+        .then(data => {
+          const newCompletedTask = data.completedTask;
+          const newPendingTask = data.pendingTask;
+          const newTotalTask = data.totalTask;
+          const newList = data.list || []; console.log(data, 'data')
+          setCompletedTask(newCompletedTask);
+          setPendingTask(newPendingTask);
+          setTotalTask(newTotalTask);
+          setList(newList);
+          setIsLoading(false);
+        })
+        .catch(error => {
+          setIsLoading(false);
+          Alert.alert(
+            'Error',
+            error.toString(),
+            [
+              {
+                text: 'Okay',
+                onPress: () => {
+                }
+              }
+            ]
+          );
+        });
+    }
+    else {
+      setIsLoading(false);
+      console.error('Access token not found1');
+    }
+    // getAccessToken().then(token => {
+    //   if (token) {
+    //     setIsLoading(true);
+    //     fetch(url, {
+    //       method: 'GET',
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //         'Authorization': `Bearer ${token}`,
+    //       },
+    //     })
+    //       .then(response => {
+    //         if (!response.ok) {
+    //           throw new Error('Network response was not ok');
+    //         }
+    //         return response.json();
+    //       })
+    //       .then(data => {
+    //         setIsLoading(false);
+    //         const newCompletedTask = data.completedTask;
+    //         const newPendingTask = data.pendingTask;
+    //         const newTotalTask = data.totalTask;
+    //         const newList = data.list;
+    //         console.log(data,'data')
+    //         setCompletedTask(newCompletedTask);
+    //         setPendingTask(newPendingTask);
+    //         setTotalTask(newTotalTask);
+    //         setList(newList);
+
+    //       })
+    //       .catch(error => {
+    //         setIsLoading(false);
+    //         Alert.alert(
+    //           'Error',
+    //           error.toString(),
+    //           [
+    //             {
+    //               text: 'Okay',
+    //               onPress: () => {
+    //               }
+    //             }
+    //           ]
+    //         );
+    //       });
+    //   } else {
+
+    //   }
+    // });
+  }
+
+  const loadQuestionData = (task: any, module: any) => {
+    getSelectedDate().then(async date => {
+      let currentDate = new Date().toISOString().split('T')[0];
+      console.log(currentDate, 'dateformat')
+      if (date != null)
+        currentDate = new Date(date).toISOString().split('T')[0];
+      // const baseUrl = await AsyncStorage.getItem('baseUrl');
+      // const url =baseUrl + `task/loadCategoryQuestions/` + task.id + "/" + currentDate;
+      const { token, baseUrl } = await getBaseUrlAndToken();
+      console.log(token, "token");
+      if (token && baseUrl) {
         setIsLoading(true);
-        fetch(url, {
+        fetch(`${baseUrl}task/loadCategoryQuestions/${task.id}/${currentDate}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
+        }).then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
         })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Network response was not ok');
-            }
-            return response.json();
-          })
           .then(data => {
             setIsLoading(false);
-            const newCompletedTask = data.completedTask;
-            const newPendingTask = data.pendingTask;
-            const newTotalTask = data.totalTask;
-            const newList = data.list;
-
-            setCompletedTask(newCompletedTask);
-            setPendingTask(newPendingTask);
-            setTotalTask(newTotalTask);
-            setList(newList);
-
+            const response = data.list || [];
+            navigation.navigate(module, { questionData: data.list[0] });
           })
           .catch(error => {
             setIsLoading(false);
@@ -106,58 +208,8 @@ export const DailyTask = ({ navigation }: any) => {
           });
       } else {
         setIsLoading(false);
-        console.error('Access token not found');
+        console.error('Access token not found2');
       }
-    });
-  }
-
-  const loadQuestionData = (task:any, module:any) => {
-    getSelectedDate().then(date => {
-      let currentDate = new Date().toISOString().split('T')[0];
-      if (date != null)
-        currentDate = new Date(date).toISOString().split('T')[0];
-      const url = config.BASE_URL + `task/loadCategoryQuestions/` + task.id + "/" + currentDate;
-      getAccessToken().then((token: any) => {
-        console.log(token, "token");
-        if (token) {
-          setIsLoading(true);
-          fetch(url, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-          })
-            .then(response => {
-              if (!response.ok) {
-                throw new Error('Network response was not ok');
-              }
-              return response.json();
-            })
-            .then(data => {
-              setIsLoading(false);
-              const response = data.list;
-              navigation.navigate(module, { questionData: data.list[0] });
-            })
-            .catch(error => {
-              setIsLoading(false);
-              Alert.alert(
-                'Error',
-                error.toString(),
-                [
-                  {
-                    text: 'Okay',
-                    onPress: () => {
-                    }
-                  }
-                ]
-              );
-            });
-        } else {
-          setIsLoading(false);
-          console.error('Access token not found');
-        }
-      });
     })
   }
 
@@ -176,22 +228,24 @@ export const DailyTask = ({ navigation }: any) => {
   );
 
   const navigateFunc = (task: any) => {
+    console.log(task.categoryName, 'nameeeeeeeeeeeeeeeee')
     if (task.categoryName.includes('Temperature')) {
-      loadQuestionData(task,'Temperature');
+      loadQuestionData(task, 'Temperature');
     } else if (task.categoryName.includes('Weight')) {
-      loadQuestionData(task,'Weight');
+      loadQuestionData(task, 'Weight');
     } else if (task.categoryName.includes('Pic')) {
-      loadQuestionData(task,'DailyPic')
+      loadQuestionData(task, 'DailyPic')
     } else if (task.categoryName.includes('BP')) {
-      loadQuestionData(task,'BP')
-    }  else {
+      loadQuestionData(task, 'BP')
+    } else {
       navigation.navigate('DailyQuestionarie', { categoryId: task.id, categoryName: task.categoryName });
     }
   }
 
   const TaskCard = ({ task }: any) => {
     return (
-      <View style={dailyTaskStyle.card}>
+      <Pressable onPress={() => navigateFunc(task)}>
+      <View style={dailyTaskStyle.card} >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ fontSize: 12, color: Colors.DarkGray, textAlign: 'center', paddingLeft: '35%' }}>
             {task.categoryTime}
@@ -203,8 +257,8 @@ export const DailyTask = ({ navigation }: any) => {
           </View>
         </View>
         <View style={{ flexDirection: 'row' }}>
-          <View style={{ width: '70%' }}>
-            <Text style={dailyTaskStyle.title} onPress={() => { navigateFunc(task) }}>{task.categoryName}</Text>
+          <View style={{ width: '80%' }}>
+            <Text style={dailyTaskStyle.title}>{task.categoryName}</Text>
             <Text style={dailyTaskStyle.description}>{task.categoryDiscription}</Text>
           </View>
           <View style={{ width: '20%', justifyContent: 'center', alignItems: 'flex-end' }}>
@@ -220,6 +274,7 @@ export const DailyTask = ({ navigation }: any) => {
           <Badge text="Before Sunset" />
         </View> */}
       </View>
+      </Pressable>
     );
   };
 
@@ -238,7 +293,6 @@ export const DailyTask = ({ navigation }: any) => {
     console.log(currentDate, "curent date dd");
     await AsyncStorage.setItem('selectedDate', currentDate.toString());
     loadQuestionare(currentDate);
-
   };
   const progress = totalTask !== 0 ? (completedTask / totalTask) * 100 : completedTask;
 
@@ -253,7 +307,6 @@ export const DailyTask = ({ navigation }: any) => {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
           <View style={{ width: '50%' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderWidth: 2, borderColor: Colors.LightGray, padding: 3, borderRadius: 5 }}>
-
               <Text style={[styles.subText, { paddingRight: 10 }]}>{moment(selectedDate).format('DD/MM/YYYY')}</Text>
               <TouchableOpacity onPress={() => setShowDatePicker(true)}>
                 <FontAwesomeIcon icon={faCalendarAlt} size={27} color="red" />
@@ -273,7 +326,12 @@ export const DailyTask = ({ navigation }: any) => {
             )}
           </View>
           <View style={{ width: '45%' }}>
-            {list.length > 0
+            {isLoading ? (
+          <Spinner
+            visible={isLoading}
+            textContent={'Loading...'}
+            textStyle={{ color: '#FFF' }}
+          />):list.length > 0
               ?
               <View style={styles.container}>
                 <View style={styles.taskCountContainer}>
@@ -290,7 +348,14 @@ export const DailyTask = ({ navigation }: any) => {
         <View>
 
         </View>
-        {list.length > 0
+
+        {isLoading ? (
+          <Spinner
+            visible={isLoading}
+            textContent={'Loading...'}
+            textStyle={{ color: '#FFF' }}
+          />
+        ) : list.length > 0
           ? <View style={{ borderWidth: 1, borderColor: Colors.defaultColor, borderTopLeftRadius: 5, borderTopRightRadius: 5 }}>
             <View style={{ flexDirection: 'row', borderTopLeftRadius: 5, borderTopRightRadius: 5 }}>
               <Text style={[styles.subText, { backgroundColor: Colors.defaultColor, color: Colors.White, padding: 10, width: '70%' }]}>Pending Task - {pendingTask}</Text>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, StyleSheet, TextInput } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +12,7 @@ import { faCircleUser, faPen, faXmark } from '@fortawesome/free-solid-svg-icons'
 import RNFS from 'react-native-fs';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ToastMessage from '../toast';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 export const EditProfile = ({ navigation }: any) => {
   const route: any = useRoute();
@@ -25,6 +26,7 @@ export const EditProfile = ({ navigation }: any) => {
   const [image, setImage] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [cameraFlag, setCameraFlag] = useState(true);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
   useEffect(() => {
     setImage(null);
@@ -32,8 +34,9 @@ export const EditProfile = ({ navigation }: any) => {
 
   const getAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      if (storedCrendentials) {
+        return storedCrendentials;
+      }
     } catch (error) {
       console.error('Error retrieving access token:', error);
       return null;
@@ -119,10 +122,11 @@ export const EditProfile = ({ navigation }: any) => {
   };
 
   const handleSubmit = () => {
-    getAccessToken().then((token: any) => {
+    getAccessToken().then(async (token: any) => {
       setIsLoading(true);
       if (token) {
-        fetch(config.BASE_URL + "user/createUsersMobile", {
+        const baseUrl = await AsyncStorage.getItem('baseUrl');
+        fetch(baseUrl + "user/createUsersMobile", {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -176,19 +180,21 @@ export const EditProfile = ({ navigation }: any) => {
           <View style={{ flexDirection: 'column', width: '100%' }}>
             <Text style={editProfileStyles.label}>First Name</Text>
             <TextInput
-              style={editProfileStyles.input}
+              style={[editProfileStyles.input,{ backgroundColor: '#d3d3d3' }]}
               placeholder="First Name"
               value={userData?.firstName}
               onChangeText={(text) => handleChange("firstName", text)}
               placeholderTextColor={Colors.PlaceholderColor}
+              editable={false}
             />
             <Text style={editProfileStyles.label}>Last Name</Text>
             <TextInput
-              style={editProfileStyles.input}
+              style={[editProfileStyles.input,{ backgroundColor: '#d3d3d3' }]}
               placeholder="Last Name"
               value={userData?.lastName}
               onChangeText={(text) => handleChange("lastName", text)}
               placeholderTextColor={Colors.PlaceholderColor}
+              editable={false}
             />
             <Text style={editProfileStyles.label}>Phone Number</Text>
             <TextInput
@@ -202,20 +208,21 @@ export const EditProfile = ({ navigation }: any) => {
             />
             <Text style={editProfileStyles.label}>Email</Text>
             <TextInput
-              style={[editProfileStyles.input, { backgroundColor: '#d3d3d3' }]}
+              style={editProfileStyles.input}
               placeholder="Email"
               value={userData?.email}
               onChangeText={(text) => handleChange("email", text)}
               placeholderTextColor={Colors.PlaceholderColor}
-              editable={false}
+         
             />
             <Text style={editProfileStyles.label}>Age</Text>
             <TextInput
-              style={editProfileStyles.input}
+              style={[editProfileStyles.input,, { backgroundColor: '#d3d3d3' }]}
               placeholder="Age"
               value={userData?.age}
               onChangeText={(text) => handleChange("age", text)}
               placeholderTextColor={Colors.PlaceholderColor}
+              editable={false}
             />
             {/* <Text style={editProfileStyles.label}>Gender</Text>
             <TextInput

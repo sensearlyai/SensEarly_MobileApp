@@ -1,20 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { View, Alert, StyleSheet, PermissionsAndroid, Text, TouchableOpacity, Modal } from 'react-native';
-import { OtpInput } from "react-native-otp-entry";
-import SmsListener from 'react-native-android-sms-listener';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { CometChatUIKit } from '@cometchat/chat-uikit-react-native';
 import { faCheckCircle, faCircleXmark, faSms } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
+import { Alert, Modal, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SmsListener from 'react-native-android-sms-listener';
+import Spinner from 'react-native-loading-spinner-overlay';
+import { OtpInput } from "react-native-otp-entry";
 import Colors from '../../constant/colors';
 import styles from '../../styles/styles';
-import Spinner from 'react-native-loading-spinner-overlay';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
-import config from '../../constant/config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CometChat, CometChatNotifications } from '@cometchat/chat-sdk-react-native';
+import messaging from "@react-native-firebase/messaging";
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
+// import SQLite from 'react-native-sqlite-storage';
+
+// const db = SQLite.openDatabase(
+//   {
+//       name: 'MainDB',
+//       location: 'default',
+//   },
+//   () => { },
+//   (  error: any) => { console.log(error) }
+// );
+ interface CredentialsType {
+  token: string; // Replace or extend this with actual properties of your credentials
+
+  // Add other properties as needed
+}
 const OTPScreen = (props: any) => {
   const route: any = useRoute();
   const { phoneNumber } = route.params;
-
   const [otp, setOtp] = useState('');
   const [termsAndConditionFlag, setTermsAndConditionFlag] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -22,14 +39,25 @@ const OTPScreen = (props: any) => {
   const [message, setMessage] = useState('');
   const [type, setType] = useState('success')
   const [isLoading, setIsLoading] = useState(false);
-
+  const { storedCrendentials, setStoredCredentials } = useContext(CrendentialsContext);
   useEffect(() => {
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       checkSMSPermission();
+      // createTable();
       setOtp('');
+      //       AsyncStorage.getItem("token").then((res:any)=>{
+      //   if(res==null){
+      //     console.log('error login again')
+      //     setTermsAndConditionFlag(false)
+      //   }
+      //   else{
+      //     console.log(res,'dash')
+      // props.navigation.navigate('DashboardContainer');
+      //   }
+      // })
     }, [])
   );
 
@@ -98,10 +126,10 @@ const OTPScreen = (props: any) => {
 
   };
 
-
-  const onLogin = () => {
+  const onLogin = async () => {
     setIsLoading(true);
-    fetch(config.BASE_URL + 'user/verifyMobileOtp/' + otp + "/" + phoneNumber, {
+    const baseUrl = await AsyncStorage.getItem('baseUrl');
+    fetch(baseUrl + 'user/verifyMobileOtp/' + otp + "/" + phoneNumber, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -109,21 +137,55 @@ const OTPScreen = (props: any) => {
     })
       .then((response) => response.json())
       .then(async (data) => {
-        // Handle the response data
+        console.log(data, 'dats');
         setIsLoading(false);
+
         if (data != undefined) {
-          setTermsAndConditionFlag(data.termsAndCondition)
+          setTermsAndConditionFlag(data.termsAndCondition);
+
           if (data.success) {
             try {
-              await AsyncStorage.setItem('userId', data.userId.toString());
-              await AsyncStorage.setItem('token', data.accessToken);
+              console.log(data.cometChatAuthToken, 'cometChatAuthToken');
+              console.log(data.hospitalId,"hospitalId")
+              AsyncStorage.setItem('UID', data.hospitalId);
+              const authToken = data.cometChatAuthToken;
+              const uid = data.userId.toString();
+              await AsyncStorage.setItem('userId', uid);
+              console.log('userId',uid);
+              const token = data.accessToken;
+              PersistLogin(data.accessToken);
+              await initializeCometChat(data.accessToken);
+
+              CometChatUIKit.login({ uid: uid })
+                .then(async user => {
+                  console.log("User logged in successfully:", user.getName());
+                  const FCM_TOKEN = await messaging().getToken();
+                  console.log(FCM_TOKEN, "fcm_token")
+                  // CometChatNotifications.registerPushToken(
+                  //    FCM_TOKEN,
+                  //   CometChatNotifications.PushPlatforms.FCM_REACT_NATIVE_ANDROID,
+                  //   'fcm-provider-1'
+                  // )
+                  //   .then((payload) => {
+                  //     console.log('Token registration successful');
+                  //   })
+                  //   .catch((err) => {
+                  //     console.log('Token registration failed:', err);
+                  //   });
+                })
+                .catch((error) => {
+                  console.log("Login failed with exception:", error);
+                });
+
             } catch (error) {
               console.error('Error storing user Id & token:', error);
             }
+
             setAlertVisible(true);
             setType("success");
             setTitle("Login Success");
             setMessage("User Signed In Successfully");
+
           } else {
             setAlertVisible(true);
             setType("error");
@@ -139,19 +201,75 @@ const OTPScreen = (props: any) => {
         setTitle("Error");
         setMessage(error.toString());
       });
-  }
+  };
 
+  const initializeCometChat = async (token: string) => {
+    console.log(token);
+    const baseUrl = await AsyncStorage.getItem('baseUrl');
 
+    if (token && baseUrl) {
+      try {
+        const response = await fetch(`${baseUrl}user/cometChatCredentials/`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        let uikitSettings = {
+          appId: data.appId,
+          authKey: data.authKey,
+          region: data.region,
+        };
+
+        console.log(uikitSettings, 'uikitSettings');
+
+        await CometChatUIKit.init(uikitSettings);
+
+        if (CometChat.setSource) {
+          CometChat.setSource('ui-kit', Platform.OS, 'react-native');
+        }
+
+        console.log("CometChatUiKit successfully initialized");
+
+      } catch (error) {
+        console.error('Error initializing CometChat:', error);
+      }
+    } else {
+      console.error('Access token or base URL not found');
+    }
+  };
+
+  const PersistLogin = (credentials: CredentialsType) => {
+    AsyncStorage.setItem('authToken', JSON.stringify(credentials))
+      .then(() => {
+        // if (setStoredCredentials) {
+          setStoredCredentials(credentials); // This should now work correctly
+          console.log(setStoredCredentials,"setStoredCredentials")
+        // }
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
 
   const handleOk = () => {
     setAlertVisible(false);
-    if (title == "Login Success") {
+
+    if (title === "Login Success") {
       AsyncStorage.removeItem("selectedDate");
-      if (!termsAndConditionFlag)
+
+      if (!termsAndConditionFlag) {
         props.navigation.navigate('TermsAndCondition');
-      else
+      } else {
         props.navigation.navigate('DashboardContainer');
+      }
     }
   };
 

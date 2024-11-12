@@ -19,8 +19,13 @@ import Spinner from 'react-native-loading-spinner-overlay';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCheckCircle, faCircleXmark } from '@fortawesome/free-solid-svg-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import navigation from '../../routers/navigation';
+// import SQLite from 'react-native-sqlite-storage';
 
 export const Login = (props: any) => {
+  const [name, setName] = useState('');
+  const [mail, setMail] = useState('');
 
   const screenWidth = Dimensions.get('window').width;
   const imageWidth = screenWidth * 0.7; // 30% of the screen width
@@ -29,10 +34,18 @@ export const Login = (props: any) => {
 
   const [isFocused, setIsFocused] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+
   const handleFocus = () => {
     setIsFocused(true);
   };
-
+  // const db = SQLite.openDatabase(
+  //   {
+  //     name: 'MainDB',
+  //     location: 'default',
+  //   },
+  //   () => { },
+  //   (error: any) => { console.log(error) }
+  // );
   const handleBlur = () => {
     setIsFocused(false);
   };
@@ -42,8 +55,8 @@ export const Login = (props: any) => {
     const phoneRegex = /^[0-9]{10}$/;
     return phoneRegex.test(phoneNumber);
   };
-
-  const handleSignIn = () => {
+    
+  const handleSignIn = async () => {
     if (phoneNumber == '') {
       console.log("STrat Signin error")
       setAlertVisible(true);
@@ -60,56 +73,135 @@ export const Login = (props: any) => {
       return;
     }
     setIsLoginLoading(true);
-    fetch(config.BASE_URL + 'user/isUserExists/' + phoneNumber, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => response.json())
-      .then(async (data) => {
-        if (data) {
+
+    const baseUrl = await AsyncStorage.getItem('baseUrl');
+    if(baseUrl!=null && baseUrl !="" && baseUrl != undefined){
+      fetch(baseUrl + 'user/isUserExists/' + phoneNumber, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+        .then((response) => response.json())
+        .then(async (data) => {
+          if (data) {
+            setIsLoginLoading(false);
+            props.navigation.navigate('OTP', { phoneNumber });
+          } else {
+            setIsLoginLoading(false);
+            setAlertVisible(true);
+            setType("error");
+            setTitle("Error");
+            setMessage("Invalid Phone Number");
+            setPhoneNumber("");
+          }
+        })
+        .catch((error: any) => {
           setIsLoginLoading(false);
-          props.navigation.navigate('OTP', { phoneNumber });
-        } else {
-          setIsLoginLoading(false);
+          console.error('Error:', error);
           setAlertVisible(true);
           setType("error");
           setTitle("Error");
-          setMessage("Invalid Phone Number");
-          setPhoneNumber("");
-        }
-      })
-      .catch((error: any) => {
-        setIsLoginLoading(false);
-        console.error('Error:', error);
-        setAlertVisible(true);
-        setType("error");
-        setTitle("Error");
-        setMessage(error.toString());
-      });
+          setMessage(error.toString());
+        });
+    }else{
+      setIsLoginLoading(false);
+      Alert.alert(
+        '❌ Error!',
+        'Please Save Base Url In Settings.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              //setIsLoading(false);
+            },
+          },
+        ],
+      );
+    }
   };
 
   useEffect(() => {
-    // const backAction = () => {
-    //   Alert.alert('Back button pressed!');
-    //   return true;
-    // };
-    // BackHandler.addEventListener('hardwareBackPress', backAction);
-    // return () => BackHandler.removeEventListener('hardwareBackPress', backAction);
+    const backAction = () => {
+      Alert.alert('Back button pressed!');
+      return true;
+    };
+
+    BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => BackHandler.removeEventListener('hardwareBackPress', backAction);
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       setIsLoginLoading(false);
+      // createTable();
+      // getData();
       setPhoneNumber('');
+      // AsyncStorage.getItem("token").then((res: any) => {
+      //   if (res == null) {
+      //     console.log('error login again')
+      //   }
+      //   else {
+      //     console.log(res, 'dash')
+      //     props.navigation.navigate('DashboardContainer');
+      //   }
+      // })
     }, [])
   );
+
+
+  // const createTable = () => {
+  //   db.transaction((tx: any) => {
+  //     tx.executeSql(
+  //       "CREATE TABLE IF NOT EXISTS " + "USERS" + "(ID INTEGER PRIMARY KEY AUTOINCREMENT,Name TEXT,Mail TEXT) ", [],
+  //       (sqlTxn: any, res: any) => {
+  //         console.log('Species Table Created successfully', res);
+  //       },
+  //       (error: any) => {
+  //         console.log('error on creating species table ' + error.message);
+  //       },
+  //     )
+  //   })
+  // }
+
+  // const setData = async () => {
+  //   if (name.length == 0 || mail.length == 0) {
+  //     Alert.alert('Warning!', 'pls enter the data')
+  //   }
+  //   else {
+  //     try {
+  //      await db.transaction(async (tx: any) => {
+  //       await tx.executeSql(
+  //           "INSERT INTO USERS (Name,Mail) VALUES(?,?)", [name, mail],
+  //           (sqlTxn: any, res: any) => {
+  //             console.log('users inserted successfully', res);
+  //           },
+  //         )
+  //       })
+  //     }
+  //     catch (error) {
+  //       console.log(error)
+  //     }
+  //   }
+  // }
+
+
+  // const getData=()=> [
+  //   db.transaction( (tx:any)=>{
+  //      tx.executeSql("SELECT Name,Mail FROM USERS",[],
+  //       (sqlTxn: any, res: any) => {
+  //         var len=res.rows.length;
+  //         console.log(res)
+  //         console.log(len,'rows')
+  //       },
+  //     )
+  //   })
+  // ]
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [type, setType] = useState('success');
+  const [type, setType] = useState('success');    
 
   const handleOk = () => {
     console.log('OK button pressed');
@@ -175,8 +267,35 @@ export const Login = (props: any) => {
           <TouchableOpacity onPress={() => { handleSignIn() }} style={styles.button}>
             <Text style={styles.buttonText}>Sign In</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() =>  props.navigation.navigate('PrivacyPolicy')} style={{paddingLeft:130, marginTop: 20 }}>
+        <Text style={{ color: 'grey', textDecorationLine: 'underline' }}>Privacy Policy</Text>
+      </TouchableOpacity>
         </View>
+        
       </View>
+      {/* <View>
+        <TextInput
+          style={{
+            height: 50, width: '100%', borderColor: isFocused ? Colors.defaultColor : Colors.Gray, color: 'black',
+            borderWidth: 2, marginBottom: 20, paddingHorizontal: 10, borderRadius: 10
+          }}
+          placeholder="enter the name"
+          onChangeText={(value) => setName(value)}
+        >
+        </TextInput>
+        <TextInput
+          style={{
+            height: 50, width: '100%', borderColor: isFocused ? Colors.defaultColor : Colors.Gray, color: 'black',
+            borderWidth: 2, marginBottom: 20, paddingHorizontal: 10, borderRadius: 10
+          }} placeholder="enter the mail"
+          onChangeText={(value) => setMail(value)}
+        >
+        </TextInput>
+        <TouchableOpacity onPress={() => { setData() }} style={styles.button}>
+            <Text style={styles.buttonText}>Sign In</Text>
+          </TouchableOpacity>
+      </View> */}
     </ScrollView>
   );
 };
+

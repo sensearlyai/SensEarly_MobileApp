@@ -1,21 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert, Image, StyleSheet, Modal, TouchableOpacity, } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, ScrollView, Alert, Image, StyleSheet, Modal, TouchableOpacity, Linking, } from 'react-native';
 import styles from '../../styles/styles';
 import Colors from '../../constant/colors';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCheckCircle, faCircleUser, faCircleXmark, faUser, faUserDoctor } from '@fortawesome/free-solid-svg-icons';
+import { faCheckCircle, faCircleUser, faCircleXmark, faHeadset, faUser, faUserDoctor } from '@fortawesome/free-solid-svg-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import config from '../../constant/config';
 import { useFocusEffect } from '@react-navigation/native';
 import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons/faRightFromBracket';
 import Spinner from 'react-native-loading-spinner-overlay';
+import { CometChat } from '@cometchat/chat-sdk-react-native';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
-export const Profile = ({ navigation }: any) => {
 
+export const Profile = (props: any) => {
   const getAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      if (storedCrendentials) {
+        return storedCrendentials;
+      }
     } catch (error) {
       console.error('Error retrieving access token:', error);
       return null;
@@ -33,17 +35,24 @@ export const Profile = ({ navigation }: any) => {
   };
 
   useEffect(() => {
-    //loadUserDetails();
-    // const backAction = () => {
-    //   Alert.alert('Back button pressed!');
-    //   return true;
+    // const handleDeepLink = (event: any) => {
+    //   const url = event.url;
+    //   console.log("Received URL: ", url);
+    //   // Handle the deep link URL
+    //   if (url.includes('com.fitrockr.sync')) {
+    //     // Perform the action based on the deep link
+    //     // For example, navigate to a specific screen or perform an action
+    //     navigation.navigate("SyncScreen"); // Replace with your actual screen
+    //   }
     // };
-
-    // BackHandler.addEventListener('hardwareBackPress', backAction);
-
-    // return () => BackHandler.removeEventListener('hardwareBackPress', backAction);
-
+    // Listen for deep links
+    // const linkingListener = Linking.addEventListener('url', handleDeepLink);
+    // Cleanup the listener when component unmounts
+    return () => {
+      // linkingListener.remove();
+    };
   }, []);
+
 
   useFocusEffect(
     React.useCallback(() => {
@@ -60,10 +69,13 @@ export const Profile = ({ navigation }: any) => {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData]: any = useState(null);
   const [activityData, setActivityData]: any = useState(null);
+  const [countdata, countsetData] = useState(0);
+  const { storedCrendentials, setStoredCredentials } = useContext(CrendentialsContext);
 
   const loadUserDetails = () => {
-    getUserId().then((userId: any) => {
-      const url = config.BASE_URL + `user/loadUser/` + userId;
+    getUserId().then(async (userId: any) => {
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `user/loadUser/` + userId;
       setIsLoading(true);
       getAccessToken().then(token => {
         setIsLoading(true);
@@ -83,8 +95,11 @@ export const Profile = ({ navigation }: any) => {
               return response.json();
             })
             .then(data => {
+              // console.log(data.createdBy,'dataaaa');
               setIsLoading(false);
               setData(data);
+              // getUnreadMsgCount('206');
+              // AsyncStorage.setItem('createdBy',data.createdBy.toString())
             })
             .catch((error: any) => {
               setIsLoading(false);
@@ -100,9 +115,63 @@ export const Profile = ({ navigation }: any) => {
     })
   }
 
+  const logout = async () => {
+    const baseUrl = await AsyncStorage.getItem('baseUrl');
+    const url = baseUrl + `user/mobileLogout`;
+    const body=JSON.stringify({ userId: await AsyncStorage.getItem('userId') })
+    let requestBody={userId:await AsyncStorage.getItem('userId') 
+    }
+    getAccessToken().then(async token => {
+      if (token) {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestBody),
+        })
+        if (!response.ok) {
+          console.error('Error: Invalid response', token,response);
+          console.log(JSON.stringify({ userId: await AsyncStorage.getItem('userId') }))
+        } else {
+          console.log('OK button pressed');
+          try {
+            // Remove the token and UID from AsyncStorage
+            await AsyncStorage.removeItem("authToken").then(() => {
+              setStoredCredentials(null);
+            }).catch(error => {
+              console.log(error)
+            });
+            await AsyncStorage.removeItem("UID");
+            await AsyncStorage.removeItem("baseUrl");
+
+            // Verify that the items have been removed
+            const authToken = await AsyncStorage.getItem("authToken");
+            const uid = await AsyncStorage.getItem("UID");
+            const baseUrl = await AsyncStorage.getItem("baseUrl")
+            if (!authToken && !uid && !baseUrl) {
+              console.log("Logout successful authToken, token and UID removed.");
+            } else {
+              console.log("Error: Token or UID still exists.");
+            }
+
+            props.navigation.navigate('Login');
+          } catch (error) {
+            console.error("Error during logout:", error);
+          }
+        }
+      } else {
+        console.error('Access token not found');
+      }
+    });
+
+  };
+
   const loadActivityLog = () => {
-    getUserId().then(userId => {
-      const url = config.BASE_URL + `audit/last5RecordsByPatientId/` + userId;
+    getUserId().then(async userId => {
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `audit/last5RecordsByPatientId/` + userId;
       setIsLoading(true);
       getAccessToken().then((token: any) => {
         if (token) {
@@ -147,7 +216,7 @@ export const Profile = ({ navigation }: any) => {
   }
 
   const UserProfileIcon = ({ imageUrl }: any) => {
-    console.log(imageUrl, "image url any")
+    // console.log(imageUrl, "image url any")
     if (!imageUrl) {
       return (
         <FontAwesomeIcon icon={faCircleUser} color={Colors.defaultColor} size={40} />
@@ -198,7 +267,10 @@ export const Profile = ({ navigation }: any) => {
   const replaceMito = (remarks: string) => {
     return remarks.replace(/<#mito#>/g, ' | ');
   };
-
+  const openLink = () => {
+    const url = 'https://play.google.com/store/apps/details?id=com.fitrockr.sync';
+    Linking.openURL(url);
+  };
   return (
     <View style={[styles.scrollViewContainer, {}]}>
       <Spinner
@@ -242,17 +314,65 @@ export const Profile = ({ navigation }: any) => {
               <Text style={{ fontSize: 16, fontWeight: 'bold', color: Colors.Black }}>{data?.userName}</Text>
               <Text style={{ fontSize: 14, color: '#666' }}>{data?.email}</Text>
             </View>
+            {/* <Text style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 10,
+              fontSize: 14,
+              color: '#666'
+            }}>
+             V 1.4.6
+            </Text> */}
           </View>
-
-          <TouchableOpacity style={{ flexDirection: 'row', padding: 10, borderBottomWidth: 2, borderBottomColor: Colors.LightGray, paddingLeft: 10 }} onPress={() => { navigation.navigate("EditProfile", { data }) }}>
+          <TouchableOpacity style={{ flexDirection: 'row', padding: 10, borderBottomWidth: 2, borderBottomColor: Colors.LightGray, paddingLeft: 10 }} onPress={() => { props.navigation.navigate("EditProfile", { data }) }}>
             <FontAwesomeIcon icon={faUser} color={Colors.DarkGray} size={23} />
             <Text style={[styles.subText, { marginLeft: 10 }]}>Edit Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={{ flexDirection: 'row', padding: 10, borderBottomWidth: 2, borderBottomColor: Colors.LightGray, paddingLeft: 10 }} onPress={() => { navigation.navigate("Login") }}>
+          {/* <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              padding: 10,
+              borderBottomWidth: 2,
+              borderBottomColor: Colors.LightGray,
+              paddingLeft: 10,
+              position: 'relative' // Required for badge positioning
+            }}
+            onPress={NavigateSupport}
+          >
+            <FontAwesomeIcon icon={faHeadset} color={Colors.DarkGray} size={23} />
+            <Text style={[styles.subText, { marginLeft: 10 }]}>
+              Support Chat
+            </Text>
+
+            {countdata > 0 && (
+              <View style={{
+                position: 'absolute',
+                  right: 10,
+                  marginTop:10,
+                  backgroundColor: 'red',
+                  borderRadius: 15,
+                  width: 25,
+                  height: 25,
+                  justifyContent: 'center',
+                  alignItems: 'center'
+              }}>
+                <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>
+                 &nbsp;{countdata}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity> */}
+
+          <TouchableOpacity style={{ flexDirection: 'row', padding: 10, borderBottomWidth: 2, borderBottomColor: Colors.LightGray, paddingLeft: 10 }} onPress={logout}>
             <FontAwesomeIcon icon={faRightFromBracket} color={Colors.DarkGray} size={23} />
             <Text style={[styles.subText, { marginLeft: 10 }]}>Logout</Text>
           </TouchableOpacity>
+
+          {/* <TouchableOpacity style={{ flexDirection: 'row', padding: 10, borderBottomWidth: 2, borderBottomColor: Colors.LightGray, paddingLeft: 10 }} onPress={openLink}>
+            <FontAwesomeIcon icon={faRightFromBracket} color={Colors.DarkGray} size={23} />
+            <Text style={[styles.subText, { marginLeft: 10 }]}>DeepLink</Text>
+          </TouchableOpacity> */}
 
         </View>
 

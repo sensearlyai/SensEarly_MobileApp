@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import Colors from '../constant/colors';
 
 const styles = StyleSheet.create({
+  
   container: {
     flex: 1,
     backgroundColor: Colors.White,
@@ -76,6 +77,12 @@ const styles = StyleSheet.create({
   },
   bottomNavigationIcon: {
 
+  },
+  modalButton:{
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
   },
   button: {
     backgroundColor: Colors.defaultColor,
@@ -157,6 +164,57 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  text: {
+    fontSize: 30,
+    color: '#ffffff',
+    marginBottom: 130,
+},
+centeredView: {
+  flex: 1, // Make the centered view take full available space
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dimmed background for better focus on modal
+},
+modalView: {
+  width: '98%', // Occupies almost the full width
+  height: '95%', // Occupies almost the full height
+  backgroundColor: 'white',
+  borderRadius: 15,
+  paddingHorizontal: 15, // Small padding for the content
+  paddingVertical: 10,
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.25,
+  shadowRadius: 4,
+  elevation: 5,
+},
+buttonOpen: {
+  backgroundColor: '#F194FF',
+},
+msgButtonOpen:{
+backgroundColor: '#87CEEB'
+},
+buttonOpen1: {
+  backgroundColor: '#F194FF',
+},
+buttonClose: {
+  backgroundColor: '#2196F3',
+},
+textStyle: {
+  color: 'white',
+  fontWeight: 'bold',
+  textAlign: 'center',
+},
+modalText: {
+  marginBottom: 15,
+  textAlign: 'center',
+},
+msgbutton: {
+  borderRadius: 20,
+  padding: 10,
+  elevation: 2,
+},
 });
 
 export default styles;

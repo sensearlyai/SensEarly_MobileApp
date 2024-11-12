@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Button, Dimensions, Modal } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,6 +11,7 @@ import { faCameraRetro } from '@fortawesome/free-solid-svg-icons';
 import RNFS from 'react-native-fs';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ToastMessage from '../toast';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 export const DailyPic = ({ navigation }: any) => {
   const route: any = useRoute();
@@ -24,6 +25,7 @@ export const DailyPic = ({ navigation }: any) => {
   const [message, setMessage] = useState('');
   const [type, setType] = useState('success')
   const [isLoading, setIsLoading] = useState(false);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
   useEffect(() => {
     setImage(null);
@@ -33,6 +35,9 @@ export const DailyPic = ({ navigation }: any) => {
     React.useCallback(() => {
       setIsLoading(false);
       setImage(null);
+      console.log(questionData,'data')
+      console.log(questionData.discription,'data')
+      console.log(questionData.question,'data21')
       setData(questionData);
       convertBase64ToUri(questionData.answer);
     }, [])
@@ -40,8 +45,9 @@ export const DailyPic = ({ navigation }: any) => {
 
   const getAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      if (storedCrendentials) {
+        return storedCrendentials;
+      }
     } catch (error) {
       console.error('Error retrieving access token:', error);
       return null;
@@ -118,13 +124,13 @@ export const DailyPic = ({ navigation }: any) => {
       return;
     }
 
-    getUserId().then(userId => {
+    getUserId().then(async userId => {
       let requestBody = {
         "id": data.qaResponseId,
         "patientId": userId,
         "patientName": "",
         "questionId": data.id,
-        "questionName": "",
+        "questionName": data.question,
         "answer": base64Image,
         "dateOfResponse": "",
         "userBadge": "",
@@ -132,7 +138,8 @@ export const DailyPic = ({ navigation }: any) => {
         "nestedQuestion": [],
         "questionType": data.questionType,
       }
-      const url = config.BASE_URL + `task/saveResponse`;
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `task/saveResponse`;
       getAccessToken().then(token => {
         setIsLoading(true);
         if (token) {
@@ -151,6 +158,7 @@ export const DailyPic = ({ navigation }: any) => {
               return response.json();
             })
             .then(response => {
+              console.log(requestBody,'data')
               setIsLoading(false);
               handleShowToast();
               setType("success");
@@ -239,3 +247,13 @@ export const DailyPic = ({ navigation }: any) => {
     </ScrollView>
   );
 };
+
+
+// const createPassword =(characters:string,PasswordLength:number)=>{
+//   let result ='';
+//   for (let i=0;i<PasswordLength;i++){
+//     const characterIndex= Math.round( Math.random() * characters.length);
+//     result += characters.charAt(characterIndex)
+//   }
+//  return result; 
+// }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "7043679193",
+    "project_id": "sensearly-f3644",
+    "storage_bucket": "sensearly-f3644.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:7043679193:android:34e0cdb1a09581eb344fc8",
+        "android_client_info": {
+          "package_name": "com.sensearly"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB56CogFh-w9gclD9P2LT5wmEzTigbYpiM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faMinus, faPlus, faTemperature0, } from '@fortawesome/free-solid-svg-icons';
@@ -10,6 +10,7 @@ import styles from '../../styles/styles';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ToastMessage from '../toast';
 import { height } from '@fortawesome/free-solid-svg-icons/faCircleCheck';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 export const Temperature = ({ navigation }: any) => {
   const route: any = useRoute();
@@ -26,6 +27,7 @@ export const Temperature = ({ navigation }: any) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const [showToast, setShowToast] = useState(false);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
   const handleIncrement = () => {
     if (!confirmTemperatureFlag) {
@@ -80,8 +82,9 @@ export const Temperature = ({ navigation }: any) => {
 
   const getAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      if (storedCrendentials) {
+        return storedCrendentials;
+      }
     } catch (error) {
       console.error('Error retrieving access token:', error);
       return null;
@@ -106,7 +109,7 @@ export const Temperature = ({ navigation }: any) => {
       setMessage("Temperature entered cannoot be below less than 0");
       return;
     }
-    getUserId().then(userId => {
+    getUserId().then(async userId => {
       let requestBody = {
         "id": data.qaResponseId,
         "patientId": userId,
@@ -120,8 +123,8 @@ export const Temperature = ({ navigation }: any) => {
         "nestedQuestion": [],
         "questionType": data.questionType,
       }
-
-      const url = config.BASE_URL + `task/saveResponse`;
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `task/saveResponse`;
       getAccessToken().then(token => {
         setIsLoading(true);
         if (token) {
@@ -239,8 +242,9 @@ export const Temperature = ({ navigation }: any) => {
   const tempInputRef = useRef<TextInput>(null);
   const confrimTempInputRef = useRef<TextInput>(null);
 
-  const loadTemperatureLookupValue = () => {
-    const url = config.BASE_URL + `task/getConstants/TEMPERATURE`;
+  const loadTemperatureLookupValue = async () => {
+    const baseUrl = await AsyncStorage.getItem('baseUrl');
+    const url = baseUrl+ `task/getConstants/TEMPERATURE`;
     getAccessToken().then(token => {
       if (token) {
         setIsLoading(true);
@@ -382,8 +386,9 @@ export const Temperature = ({ navigation }: any) => {
     }
   };
 
-  const saveException = (exceptionCondition:boolean) => {
-    const url = config.BASE_URL + `task/saveException`;
+  const saveException = async (exceptionCondition:boolean) => {
+    const baseUrl = await AsyncStorage.getItem('baseUrl');
+    const url = baseUrl + `task/saveException`;
     let requestBody = {
       "id": 0,
       "exceptionType": "Exception 16",

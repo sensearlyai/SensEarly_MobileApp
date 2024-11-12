@@ -1,4 +1,9 @@
 {
   "name": "MitoPower",
-  "displayName": "MitoPower"
+  "displayName": "MitoPower",
+  "extra": {
+    "eas": {
+      "projectId": "d8eba969-5485-4742-8eb7-590eff9ed175"
+    }
+  }
 }

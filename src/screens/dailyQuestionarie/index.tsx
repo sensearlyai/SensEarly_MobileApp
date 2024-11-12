@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Dimensions } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faInfoCircle, } from '@fortawesome/free-solid-svg-icons';
@@ -9,6 +9,7 @@ import Colors from '../../constant/colors';
 import styles from '../../styles/styles';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ToastMessage from '../toast';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 export const DailyQuestionarie = ({ navigation }: any) => {
   const route: any = useRoute();
@@ -21,6 +22,7 @@ export const DailyQuestionarie = ({ navigation }: any) => {
   const [type, setType] = useState('success')
   const [isLoading, setIsLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
 
   useEffect(() => {
@@ -28,8 +30,9 @@ export const DailyQuestionarie = ({ navigation }: any) => {
 
   const getAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      if (storedCrendentials) {
+        return storedCrendentials;
+      }
     } catch (error) {
       console.error('Error retrieving access token:', error);
       return null;
@@ -66,11 +69,12 @@ export const DailyQuestionarie = ({ navigation }: any) => {
   );
 
   const loadQuestionnaire = () => {
-    getSelectedDate().then(date => {
+    getSelectedDate().then(async date => {
       let currentDate = new Date().toISOString().split('T')[0];
       if (date != null)
         currentDate = new Date(date).toISOString().split('T')[0];
-      const url = config.BASE_URL + `task/loadCategoryQuestions/` + categoryId + "/" + currentDate;
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `task/loadCategoryQuestions/` + categoryId + "/" + currentDate;
       getAccessToken().then((token: any) => {
         console.log(token, "token");
         if (token) {
@@ -90,7 +94,9 @@ export const DailyQuestionarie = ({ navigation }: any) => {
             })
             .then(data => {
               setIsLoading(false);
+
               const response = data.list;
+              console.log(response,'response')
               const newCompletedTask = data.complatedQuestions;
               const newPendingTask = data.pendingQuestions;
               setCompletedTask(newCompletedTask);
@@ -112,13 +118,14 @@ export const DailyQuestionarie = ({ navigation }: any) => {
   }
 
   const onSubmit = (question: any, value: any) => {
-    getUserId().then(userId => {
+    console.log(question,'question')
+    getUserId().then(async userId => {
       let requestBody = {
         "id": question.qaResponseId,
         "patientId": userId,
         "patientName": "",
         "questionId": question.id,
-        "questionName": "",
+        "questionName": question.question,
         "answer": value ? "Yes" : "No",
         "dateOfResponse": "",
         "userBadge": "",
@@ -126,7 +133,8 @@ export const DailyQuestionarie = ({ navigation }: any) => {
         "nestedQuestion": [],
         "questionType": question.questionType,
       }
-      const url = config.BASE_URL + `task/saveResponse`;
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `task/saveResponse`;
       getAccessToken().then(token => {
         setIsLoading(true);
         if (token) {
@@ -139,6 +147,7 @@ export const DailyQuestionarie = ({ navigation }: any) => {
             body: JSON.stringify(requestBody),
           })
             .then(response => {
+              console.log(requestBody,'requestbody')
               if (!response.ok) {
                 throw new Error('Network response was not ok');
               }
@@ -188,8 +197,8 @@ export const DailyQuestionarie = ({ navigation }: any) => {
         "questionType": question.questionType,
 
       };
-
-      const url = config.BASE_URL + `task/saveResponse`;
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `task/saveResponse`;
 
       setIsLoading(true);
 
@@ -230,7 +239,7 @@ export const DailyQuestionarie = ({ navigation }: any) => {
   };
 
   const onSubmitText = (question: any, value: any) => {
-    getUserId().then(userId => {
+    getUserId().then( async userId => {
       let requestBody = {
         "id": question.qaResponseId,
         "patientId": userId,
@@ -244,7 +253,8 @@ export const DailyQuestionarie = ({ navigation }: any) => {
         "nestedQuestion": [],
         "questionType": question.questionType,
       }
-      const url = config.BASE_URL + `task/saveResponse`;
+      const baseUrl = await AsyncStorage.getItem('baseUrl');
+      const url = baseUrl + `task/saveResponse`;
       getAccessToken().then((token: any) => {
         setIsLoading(true);
         if (token) {
@@ -554,8 +564,13 @@ export const DailyQuestionarie = ({ navigation }: any) => {
                     {question && (
                       <View>
                         <View style={[styles.questionCard, { marginBottom: 20 }]}>
-                          <Text style={dailyQuestionarieStyles.questionText}>{question.question}</Text>
-                          <Text style={dailyQuestionarieStyles.descriptionText}>{question.discription}</Text>
+                         <View style={{flexDirection:'row'}}>
+                         <Text style={[dailyQuestionarieStyles.questionText,{width:'93%'}]}>{question.question }</Text>
+                          <CustomTooltip text={question.discription}>
+                        <FontAwesomeIcon color={Colors.defaultColor} size={20} icon={faInfoCircle} />
+                          </CustomTooltip>
+                         </View>
+                          {/* <Text style={dailyQuestionarieStyles.descriptionText}>{question.discription}</Text> */}
                           {question.currentDate ? (
                             question.questionType === 'Yes or No' ? (
                               <View style={{ flexDirection: 'row', marginTop: 5, justifyContent: 'center' }}>
@@ -621,7 +636,7 @@ export const DailyQuestionarie = ({ navigation }: any) => {
                               <View style={{ flexDirection: 'row' }}>
                                 <Text style={[styles.subText, { width: '50%' }]}>{question.answer ? question.answer : 'NA'}</Text>
                                 <TouchableOpacity style={[styles.button, { width: '45%' }]} onPress={() => { navigation.navigate('StroopTest', { questionData: question }); }}>
-                                  <Text style={styles.buttonText}>Stroop Test</Text>
+                                  <Text style={styles.buttonText}>Start Test</Text>
                                 </TouchableOpacity>
                               </View>) : (
                               // Default input for other types

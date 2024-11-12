@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Colors from '../../constant/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -6,6 +6,7 @@ import config from '../../constant/config';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ToastMessage from '../toast';
 import { useRoute } from '@react-navigation/native';
+import { CrendentialsContext } from '../../constant/CredentialsContext';
 
 const StroopTest = () => {
   const colors = [ 'green', 'red', 'blue', 'white', 'black', 'red', 'black', 'green', 'blue', 'white' ];
@@ -30,6 +31,7 @@ const StroopTest = () => {
   const [type, setType] = useState('success');
   const [isLoading, setIsLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const { storedCrendentials } = useContext(CrendentialsContext);
 
 
   useEffect(() => {
@@ -145,8 +147,9 @@ const shuffleArray = (array: any[]) => {
   // Function to get access token from AsyncStorage
   const getAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      return token;
+      if (storedCrendentials) {
+        return storedCrendentials;
+      }
     } catch (error) {
       console.error('Error retrieving access token:', error);
       return null;
@@ -170,7 +173,7 @@ const shuffleArray = (array: any[]) => {
       setIsPracticing(false);
       startOrPractice()
     } else {
-      getUserId().then(userId => {
+      getUserId().then(async userId => {
         let requestBody = {
           "id": data.qaResponseId,
           "patientId": userId,
@@ -185,8 +188,8 @@ const shuffleArray = (array: any[]) => {
           "nestedQuestion": [],
           "stroopValue": `${elapsedTime}`,
         }
-
-        const url = config.BASE_URL + `task/saveResponse`;
+        const baseUrl = await AsyncStorage.getItem('baseUrl');
+        const url = baseUrl + `task/saveResponse`;
         getAccessToken().then((token: any) => {
           setIsLoading(true);
           if (token) {
@@ -208,7 +211,7 @@ const shuffleArray = (array: any[]) => {
                 setIsLoading(false);
                 handleShowToast();
                 setType("success");
-                setMessage("Stroop Test data saved successfully");
+                setMessage("Test data saved successfully");
                 const updatedData = {
                   ...data,
                   qaResponseId: response.qaReponseId
@@ -282,7 +285,7 @@ const shuffleArray = (array: any[]) => {
       {
         startTime === null && data.qaResponseId !== null ? // Check if startTime is null and data.answer is not null
           <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={styles.title}>Stroop Test</Text>
+            <Text style={styles.title}>Cognitive Test</Text>
             <TouchableOpacity onPress={() => { setIsPracticing(false); startOrPractice(); }} style={styles.button}>
               <Text style={styles.buttonText}>Start Test</Text>
             </TouchableOpacity>
